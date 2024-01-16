@@ -7,8 +7,8 @@ function RunFromGit
         [Parameter(Mandatory = $true)][string]$script, # Path of file in github repo
         $outfile, # File to execute (probably same as above sans dirs)
         $automation_name, # Used for temp dir names
-        [string]$github_api_url = 'https://api.github.com/repos/tangelo-services-org/ninja-rmm/contents', # If you are using a proxy change this
-        [string]$github_raw_url = 'https://raw.githubusercontent.com/tangelo-services-org', # If you are using a proxy change this
+        [string]$github_api_url = 'https://api.github.com/repos/blockheadvfx/bolierplates/contents', # If you are using a proxy change this
+        [string]$github_raw_url = 'https://raw.githubusercontent.com/blockheadvfx', # If you are using a proxy change this
         [bool]$load_helpers = $true,
         [bool]$user_mode = $false, # If running as logged on user instead of system user, will change working dir to $env:LOCALAPPDATA
         [string]$pub_branch = 'main' # used to swap to different test branches if you want
@@ -21,7 +21,7 @@ function RunFromGit
         # If you want to add more helpers, include their names here and upload them to the 
         # powershell/helpers/ folder for the public github repo
         $helper_files = @('create_shortcut.ps1', 'check_installed.ps1', 'set_env_var.ps1', 'set_reg_key.ps1', 'uninstall_program.ps1')
-        $base_url = "$github_raw_url/ninja-rmm-pub/$pub_branch/powershell/helpers"
+        $base_url = "$github_raw_url/tactical-public/$pub_branch/powershell/helpers"
 
         foreach ($file in $helper_files)
         {
@@ -34,20 +34,20 @@ function RunFromGit
     # Preconfigured variables:
     if ($user_mode)
     {
-        $ninja_dir = "$env:LOCALAPPDATA\Temp" # In usermode ProgramData is not writeable by most users
+        $trmm_dir = "$env:LOCALAPPDATA\Temp" # In usermode ProgramData is not writeable by most users
     }
     else
     {
-        $ninja_dir = 'C:\ProgramData\NinjaRMMAgent' # Otherwise use this dir
+        $trmm_dir = 'C:\ProgramData\TacticalRMM' # Otherwise use this dir
     }
 
     # Get the install script from github
     # Start by getting the PAT from S3 to access our private repo
     Write-Host 'Getting personal access token from S3...'
     # pat URL encoded with b64 here just to avoid getting grabbed by scrapers
-    $pat_url_b64 = 'aHR0cHM6Ly9taW5pby50YW5nZWxvLmNvbS90YW5nZWxvLW5pbmphLXJlcG8vbmluamFfcm1tX2dpdGh1Yi5wYXQ='
-    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
-    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content
+    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'    ##converted so that RL could be hidden 
+    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))          ##command to decode the above random string
+    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content              ##downloads the PAT file form the URL and gets contents of that file 
     $pat = [Text.Encoding]::UTF8.GetString($pat)
 
     # Check whether we are getting a file or a folder
@@ -80,8 +80,8 @@ function RunFromGit
         $outfile = Split-Path -Path $script -Leaf
         $automation_name = Format-InvalidPathCharacters -path $outfile
         # Set up temp dirs
-        New-Item -ItemType Directory "$ninja_dir\$automation_name" -Force | Out-Null
-        Set-Location "$ninja_dir\$automation_name"
+        New-Item -ItemType Directory "$trmm_dir\$automation_name" -Force | Out-Null
+        Set-Location "$trmm_dir\$automation_name"
         # Download url
         $headers = @{
             'Accept'               = 'application/vnd.github.v3.raw'
@@ -127,15 +127,15 @@ function RunFromGit
        
 
         # Clean up 
-        Set-Location "$ninja_dir"
-        Remove-Item "$ninja_dir\$automation_name" -Force -Recurse
-        if (Test-Path "$ninja_dir\$automation_name")
+        Set-Location "$trmm_dir"
+        Remove-Item "$trmm_dir\$automation_name" -Force -Recurse
+        if (Test-Path "$trmm_dir\$automation_name")
         {
-            Write-Host "Failed to clean up $ninja_dir\$automation_name"
+            Write-Host "Failed to clean up $trmm_dir\$automation_name"
         }
         else
         {
-            Write-Host "Cleaned up $ninja_dir\$automation_name"
+            Write-Host "Cleaned up $trmm_dir\$automation_name"
         }
         Write-Host $result
     }
