@@ -38,18 +38,19 @@ function RunFromGit
     }
     else
     {
-        $trmm_dir = 'C:\test' # Otherwise use this dir
+        $trmm_dir = 'C:\ProgramData\TacticalRMM' # Otherwise use this dir
     }
 
     # Get the install script from github
     # Start by getting the PAT from S3 to access our private repo
-    Write-Host 'Getting personal access token from S3...'
+    Write-Host 'Getting personal access token from Sagars private S3 bucket.........'
     # pat URL encoded with b64 here just to avoid getting grabbed by scrapers
-    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'    ##converted so that RL could be hidden 
-    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))          ##command to decode the above random string
-    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content              ##downloads the PAT file form the URL and gets contents of that file 
+    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'
+    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
+    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content
     $pat = [Text.Encoding]::UTF8.GetString($pat)
-    #$pat="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"
+    echo $pat
+
     # Check whether we are getting a file or a folder
     $headers = @{
         'Accept'               = 'application/vnd.github.v3.object'
