@@ -52,14 +52,28 @@ function RunFromGit
     echo $pat
 
     # Check whether we are getting a file or a folder
+    #$headers = @{
+    #    'Accept'               = 'application/vnd.github.v3.object'
+    #    'Authorization'        = "Bearer $pat"
+    #    'X-GitHub-Api-Version' = '2022-11-28'
+    #}
+
+    #$response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
+    $uri = "$github_api_url/$([System.Uri]::EscapeDataString($script))"
     $headers = @{
         'Accept'               = 'application/vnd.github.v3.object'
         'Authorization'        = "Bearer $pat"
         'X-GitHub-Api-Version' = '2022-11-28'
     }
+    $curlCommand = "curl -H 'Accept: $($headers['Accept'])' -H 'Authorization: $($headers['Authorization'])' -H 'X-GitHub-Api-Version: $($headers['X-GitHub-Api-Version'])' '$uri'"
+    $response = Invoke-Expression -Command $curlCommand
+    $responseObject = $response | ConvertFrom-Json
+    Write-Host "Response:"
+    echo $responseObject
 
-    #$response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
-    $response = Invoke-RestMethod -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -Headers $headers
+
+
+
     echo $response
     $script_list = @() # Treat as an array even if we only end up with one script at a time
 
