@@ -1,22 +1,25 @@
+
+
+
 function RunFromGit
 {
     param (
-        [Parameter(Mandatory = $true)][string]$script, # Path of file in GitHub repo
+        [Parameter(Mandatory = $true)][string]$script, # Path of file in github repo
         $outfile, # File to execute (probably same as above sans dirs)
         $automation_name, # Used for temp dir names
-        [string]$github_api_url = 'https://api.github.com/repos/BlockheadVFX-IT/boilerplates/contents', # If you are using a proxy change this
-        [string]$github_raw_url = 'https://raw.githubusercontent.com/BlockheadVFX-IT', # If you are using a proxy change this
+        [string]$github_api_url = 'https://api.github.com/repos/blockheadvfx/boilerplates/contents', # If you are using a proxy change this
+        [string]$github_raw_url = 'https://raw.githubusercontent.com/blockheadvfx', # If you are using a proxy change this
         [bool]$load_helpers = $true,
-        [bool]$user_mode = $false, # If running as a logged-on user instead of the system user, will change working dir to $env:LOCALAPPDATA
+        [bool]$user_mode = $false, # If running as logged on user instead of system user, will change working dir to $env:LOCALAPPDATA
         [string]$pub_branch = 'main' # used to swap to different test branches if you want
     )
 
-    # Save the current working directory
     $prev_cwd = Get-Location
 
-    # Load helper scripts if required
     if ($load_helpers)
     {
+        # If you want to add more helpers, include their names here and upload them to the 
+        # powershell/helpers/ folder for the public github repo
         $helper_files = @('create_shortcut.ps1', 'check_installed.ps1', 'set_env_var.ps1', 'set_reg_key.ps1', 'uninstall_program.ps1')
         $base_url = "$github_raw_url/tactical-public/$pub_branch/powershell/helpers"
 
@@ -27,88 +30,117 @@ function RunFromGit
         }
     }
 
-    # Set the appropriate temp directory based on user mode
+    
+    # Preconfigured variables:
     if ($user_mode)
     {
-        $ninja_dir = "$env:LOCALAPPDATA\Temp" # In user mode, ProgramData is not writable by most users
+        $trmm_dir = "$env:LOCALAPPDATA\Temp" # In usermode ProgramData is not writeable by most users
     }
     else
     {
-        $ninja_dir = 'C:\ProgramData\TacticalRMM' # Otherwise use this dir
+        $trmm_dir = 'C:\ProgramData\TacticalRMM' # Otherwise use this dir
     }
 
-    # Get the personal access token (PAT) from S3 to access the private repo
-    Write-Host 'Getting personal access token from Sagar''s private S3 bucket...'
-    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'
-    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
-    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content
+    # Get the install script from github
+    # Start by getting the PAT from S3 to access our private repo
+    Write-Host 'Getting personal access token from S3...'
+    # pat URL encoded with b64 here just to avoid getting grabbed by scrapers
+    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'    ##converted so that RL could be hidden 
+    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))          ##command to decode the above random string
+    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content              ##downloads the PAT file form the URL and gets contents of that file 
     $pat = [Text.Encoding]::UTF8.GetString($pat)
-
+    echo $pat
     # Check whether we are getting a file or a folder
-    # Define headers for GitHub API request
     $headers = @{
         'Accept'               = 'application/vnd.github.v3.object'
         'Authorization'        = "Bearer $pat"
         'X-GitHub-Api-Version' = '2022-11-28'
     }
 
-    # Construct the URI for GitHub API request
-    $uri = "$github_api_url/$([System.Uri]::EscapeDataString($script))"
+    $response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
 
-    # Invoke a REST API request using cURL and capture the response
-    $curlCommand = "curl -H 'Accept: $($headers['Accept'])' -H 'Authorization: $($headers['Authorization'])' -H 'X-GitHub-Api-Version: $($headers['X-GitHub-Api-Version'])' '$uri'"
-    $response = Invoke-Expression -Command $curlCommand
+    $script_list = @() # Treat as an array even if we only end up with one script at a time
 
-    # Convert the JSON response to a PowerShell object
-    $responseObject = $response | ConvertFrom-Json
-
-    # Set up temp dirs and download the script
-    $outfile = Split-Path -Path $script -Leaf
-    $automation_name = Format-InvalidPathCharacters -path $outfile
-    New-Item -ItemType Directory "$ninja_dir\$automation_name" -Force | Out-Null
-    Set-Location "$ninja_dir\$automation_name"
-
-    Write-Host "Getting $script from GitHub..."
-    Invoke-WebRequest -Uri $uri -Headers $headers -OutFile $outfile -UseBasicParsing
-
-    if (Test-Path $outfile)
+    if ($response.type -eq 'dir')
     {
-        Write-Host "$outfile downloaded successfully"
+        # If we get a directory, we will want to download and run every script within it
+        foreach ($entry in $response.entries)
+        {
+            $script_list += $entry.path
+        }
     }
-    else
+    elseif ($response.type -eq 'file')
     {
-        Write-Host "$outfile not downloaded"
-    }
+        $script_list += $response.path
+    } 
 
-    # Run the script
-    $process_error = $false
-    try
+    foreach ($script in $script_list)
     {
-        Write-Host "Running $outfile ..."
-        & ".\$outfile" 2>&1 | Out-String
-        $result = $LASTEXITCODE
-        Write-Host "$outfile done, cleaning up..."
-    }
-    catch
-    {
-        $process_error = $_.Exception
-    }
+        
+        $outfile = Split-Path -Path $script -Leaf
+        $automation_name = Format-InvalidPathCharacters -path $outfile
+        # Set up temp dirs
+        New-Item -ItemType Directory "$trmm_dir\$automation_name" -Force | Out-Null
+        Set-Location "$trmm_dir\$automation_name"
+        # Download url
+        $headers = @{
+            'Accept'               = 'application/vnd.github.v3.raw'
+            'Authorization'        = "Bearer $pat"
+            'X-GitHub-Api-Version' = '2022-11-28'
+        }
+        if ($pat -like 'github_pat*')
+        {
+            Write-Host 'Got personal access token'
+        }
+        else
+        {
+            Write-Host 'Did not get personal access token'
+        }
 
-    # Clean up
-    Set-Location "$ninja_dir"
-    Remove-Item "$ninja_dir\$automation_name" -Force -Recurse
+        # Now we have the PAT, request the file from the repo
+        Write-Host "Getting $script from github..."
+        Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -Headers $headers -OutFile $outfile -UseBasicParsing
+        if (Test-Path $outfile)
+        {
+            Write-Host "$outfile downloaded successfully"
+        }
+        else
+        {
+            Write-Host "$outfile not downloaded"
+        }
 
-    if (Test-Path "$ninja_dir\$automation_name")
-    {
-        Write-Host "Failed to clean up $ninja_dir\$automation_name"
-    }
-    else
-    {
-        Write-Host "Cleaned up $ninja_dir\$automation_name"
+        # We've got the script, now to run it...
+        $process_error = $false
+        try
+        {
+            Write-Host "Running $outfile ..."
+            & ".\$outfile" 2>&1 | Out-String
+            $result = $LASTEXITCODE
+            Write-Host "$outfile done, cleaning up..."
+        }
+        catch
+        {
+            # We will throw any errors later, after we have cleaned up dirs
+            $process_error = $_.Exception 
+        }
+        
+       
+
+        # Clean up 
+        Set-Location "$trmm_dir"
+        Remove-Item "$trmm_dir\$automation_name" -Force -Recurse
+        if (Test-Path "$trmm_dir\$automation_name")
+        {
+            Write-Host "Failed to clean up $trmm_dir\$automation_name"
+        }
+        else
+        {
+            Write-Host "Cleaned up $trmm_dir\$automation_name"
+        }
+        Write-Host $result
     }
 
     Set-Location $prev_cwd
-
     if ($process_error)
     {
         throw $process_error
@@ -118,6 +150,7 @@ function RunFromGit
         return $result
     }
 }
+
 
 function Format-InvalidPathCharacters
 {
