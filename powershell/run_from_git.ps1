@@ -15,6 +15,8 @@ function RunFromGit
 
     if ($load_helpers)
     {
+        # If you want to add more helpers, include their names here and upload them to the 
+        # powershell/helpers/ folder for the public GitHub repo
         $helper_files = @('create_shortcut.ps1', 'check_installed.ps1', 'set_env_var.ps1', 'set_reg_key.ps1', 'uninstall_program.ps1')
         $base_url = "$github_raw_url/tactical-public/$pub_branch/powershell/helpers"
 
@@ -25,15 +27,7 @@ function RunFromGit
         }
     }
 
-    if ($user_mode)
-    {
-        $trmm_dir = "$env:LOCALAPPDATA\Temp" # In user mode, ProgramData is not writable by most users
-    }
-    else
-    {
-        $trmm_dir = 'C:\ProgramData\TacticalRMM' # Otherwise, use this directory
-    }
-
+    # Get the Personal Access Token (PAT) from S3 to access the private repo
     Write-Host 'Getting personal access token from Sagar''s private S3 bucket.........'
     $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'
     $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
@@ -41,6 +35,7 @@ function RunFromGit
     $pat = [Text.Encoding]::UTF8.GetString($pat)
     echo $pat
 
+    # Set up headers with the PAT for authorization
     $headers = @{
         'Accept'               = 'application/vnd.github.v3.raw'
         'Authorization'        = "Bearer $pat"
@@ -51,20 +46,11 @@ function RunFromGit
     New-Item -ItemType Directory "$trmm_dir\$automation_name" -Force | Out-Null
     Set-Location "$trmm_dir\$automation_name"
 
-    # Download script
+    # Download script from the private repo using PAT
     Write-Host "Getting $script from GitHub..."
     Invoke-WebRequest -Uri "$github_raw_url/$pub_branch/$script" -Headers $headers -OutFile $outfile -UseBasicParsing
 
-    if (Test-Path $outfile)
-    {
-        Write-Host "$outfile downloaded successfully"
-    }
-    else
-    {
-        Write-Host "$outfile not downloaded"
-    }
-
-    # Run the script
+    # We've got the script, now to run it...
     $process_error = $false
     try
     {
@@ -75,6 +61,7 @@ function RunFromGit
     }
     catch
     {
+        # We will throw any errors later, after we have cleaned up dirs
         $process_error = $_.Exception 
     }
 
@@ -92,7 +79,6 @@ function RunFromGit
     Write-Host $result
 
     Set-Location $prev_cwd
-
     if ($process_error)
     {
         throw $process_error
@@ -109,7 +95,14 @@ function Format-InvalidPathCharacters
         [string]$path
     )
 
+    # Define a regex pattern to match non-standard characters
     $invalidCharsPattern = '[\\/:*?"<>|]'
+
+    # Replace non-standard characters with an underscore
     $escapedPath = [regex]::Replace($path, $invalidCharsPattern, '_')
+
     return $escapedPath
 }
+
+# Example usage:
+# RunFromGit -script "path/to/script.ps1" -outfile "output.ps1" -automation_name "AutomationName"
