@@ -50,6 +50,8 @@ function RunFromGit
     $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content
     $pat = [Text.Encoding]::UTF8.GetString($pat)
     echo $pat
+    echo $github_api_url
+    
 
     # Check whether we are getting a file or a folder
     #$headers = @{
@@ -67,9 +69,7 @@ function RunFromGit
     }
     $response = Invoke-WebRequest -Uri $uri -Headers $headers -UseBasicParsing
 
-    $response = Invoke-Expression -Command $curlCommand
-    $responseObject = $response.content | ConvertFrom-Json
-    echo $response
+    $responseObject = $response.Content | ConvertFrom-Json
     $script_list = @() # Treat as an array even if we only end up with one script at a time
 
     if ($response.type -eq 'dir')
