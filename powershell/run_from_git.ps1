@@ -51,25 +51,17 @@ function RunFromGit
     $pat = [Text.Encoding]::UTF8.GetString($pat)
     echo $pat
     echo $github_api_url
-    
 
-    # Check whether we are getting a file or a folder
-    #$headers = @{
-    #    'Accept'               = 'application/vnd.github.v3.object'
-    #    'Authorization'        = "Bearer $pat"
-    #    'X-GitHub-Api-Version' = '2022-11-28'
-    #}
 
-    #$response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
-    $uri = "$github_api_url/$([System.Uri]::EscapeDataString($script))"
+     Check whether we are getting a file or a folder
     $headers = @{
         'Accept'               = 'application/vnd.github.v3.object'
         'Authorization'        = "Bearer $pat"
         'X-GitHub-Api-Version' = '2022-11-28'
     }
-    $response = Invoke-WebRequest -Uri $uri -Headers $headers -UseBasicParsing
 
-    $responseObject = $response.Content | ConvertFrom-Json
+    $response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
+   
     $script_list = @() # Treat as an array even if we only end up with one script at a time
 
     if ($response.type -eq 'dir')
