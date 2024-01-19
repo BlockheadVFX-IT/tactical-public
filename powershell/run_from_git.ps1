@@ -65,15 +65,10 @@ function RunFromGit
         'Authorization'        = "Bearer $pat"
         'X-GitHub-Api-Version' = '2022-11-28'
     }
-    $curlCommand = "curl -H 'Accept: $($headers['Accept'])' -H 'Authorization: $($headers['Authorization'])' -H 'X-GitHub-Api-Version: $($headers['X-GitHub-Api-Version'])' '$uri'"
+    $response = Invoke-WebRequest -Uri $uri -Headers $headers -UseBasicParsing
+
     $response = Invoke-Expression -Command $curlCommand
-    $responseObject = $response | ConvertFrom-Json
-    Write-Host "Response:"
-    echo $responseObject
-
-
-
-
+    $responseObject = $response.content | ConvertFrom-Json
     echo $response
     $script_list = @() # Treat as an array even if we only end up with one script at a time
 
