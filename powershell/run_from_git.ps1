@@ -58,8 +58,8 @@ function RunFromGit
         'X-GitHub-Api-Version' = '2022-11-28'
     }
 
-    $response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
-
+    #$response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
+    $response = Invoke-RestMethod -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -Headers $headers
     echo $response
     $script_list = @() # Treat as an array even if we only end up with one script at a time
 
