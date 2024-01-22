@@ -1,3 +1,20 @@
+$token = "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"
+$headers = @{
+    'Authorization' = "Bearer $token"
+}
+# Replace 'BlockheadVFX-IT' with the correct GitHub user or organization name
+$username = 'BlockheadVFX-IT'
+
+$uri = "https://api.github.com/users/$username"
+$response = Invoke-WebRequest -Uri $uri -Headers $headers -Method Head
+
+# Print the response to see if it was successful
+Write-Host $response
+
+
+
+
+------------------------------
 
 
 
@@ -7,8 +24,8 @@ function RunFromGit
         [Parameter(Mandatory = $true)][string]$script, # Path of file in github repo
         $outfile, # File to execute (probably same as above sans dirs)
         $automation_name, # Used for temp dir names
-        [string]$github_api_url = 'https://api.github.com/repos/BlockheadVFX-IT/boilerplates/contents', # If you are using a proxy change this
-        [string]$github_raw_url = 'https://raw.githubusercontent.com/BlockheadVFX-IT', # If you are using a proxy change this
+        [string]$github_api_url = 'https://api.github.com/repos/blockheadvfx-it/boilerplates/contents', # If you are using a proxy change this
+        [string]$github_raw_url = 'https://raw.githubusercontent.com/blockheadvfx-it', # If you are using a proxy change this
         [bool]$load_helpers = $true,
         [bool]$user_mode = $false, # If running as logged on user instead of system user, will change working dir to $env:LOCALAPPDATA
         [string]$pub_branch = 'main' # used to swap to different test branches if you want
@@ -45,13 +62,57 @@ function RunFromGit
     # Start by getting the PAT from S3 to access our private repo
     Write-Host 'Getting personal access token from S3...'
     # pat URL encoded with b64 here just to avoid getting grabbed by scrapers
-    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'    ##converted so that RL could be hidden 
-    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))          ##command to decode the above random string
-    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content              ##downloads the PAT file form the URL and gets contents of that file 
+    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'
+    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
+    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content
     $pat = [Text.Encoding]::UTF8.GetString($pat)
-    echo $pat
-   
 
+    # Check whether we are getting a file or a folder
+    $headers = @{
+        'Accept'               = 'application/vnd.github.v3.object'
+        'Authorization'        = "Bearer $pat"
+        'X-GitHub-Api-Version' = '2022-11-28'
+    }
+
+    $response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
+
+    $script_list = @() # Treat as an array even if we only end up with one script at a time
+
+    if ($response.type -eq 'dir')
+    {
+        # If we get a directory, we will want to download and run every script within it
+        foreach ($entry in $response.entries)
+        {
+            $script_list += $entry.path
+        }
+    }
+    elseif ($response.type -eq 'file')
+    {
+        $script_list += $response.path
+    } 
+
+    foreach ($script in $script_list)
+    {
+        
+        $outfile = Split-Path -Path $script -Leaf
+        $automation_name = Format-InvalidPathCharacters -path $outfile
+        # Set up temp dirs
+        New-Item -ItemType Directory "$trmm_dir\$automation_name" -Force | Out-Null
+        Set-Location "$trmm_dir\$automation_name"
+        # Download url
+        $headers = @{
+            'Accept'               = 'application/vnd.github.v3.raw'
+            'Authorization'        = "Bearer $pat"
+            'X-GitHub-Api-Version' = '2022-11-28'
+        }
+        if ($pat -like 'github_pat*')
+        {
+            Write-Host 'Got personal access token'
+        }
+        else
+        {
+            Write-Host 'Did not get personal access token'
+        }
 
         # Now we have the PAT, request the file from the repo
         Write-Host "Getting $script from github..."
