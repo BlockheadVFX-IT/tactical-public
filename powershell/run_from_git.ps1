@@ -46,6 +46,7 @@ function RunFromGit
     $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
     $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content
     $pat = [Text.Encoding]::UTF8.GetString($pat)
+    echo $pat
 
     # Check whether we are getting a file or a folder
     $headers = @{
