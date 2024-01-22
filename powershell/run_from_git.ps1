@@ -26,8 +26,6 @@ function RunFromGit
             . ([Scriptblock]::Create((Invoke-WebRequest -Uri "$base_url/$file" -UseBasicParsing).Content))
         }
     }
-
-    
     # Preconfigured variables:
     if ($user_mode)
     {
