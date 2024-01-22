@@ -26,6 +26,7 @@ function RunFromGit
             . ([Scriptblock]::Create((Invoke-WebRequest -Uri "$base_url/$file" -UseBasicParsing).Content))
         }
     }
+
     # Preconfigured variables:
     if ($user_mode)
     {
@@ -36,117 +37,124 @@ function RunFromGit
         $trmm_dir = 'C:\ProgramData\NinjaRMMAgent' # Otherwise use this dir
     }
 
-    # Get the install script from github
-    # Start by getting the PAT from S3 to access our private repo
-    Write-Host 'Getting personal access token from S3...'
-    # pat URL encoded with b64 here just to avoid getting grabbed by scrapers
-    $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'
-    $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
-    $pat = Invoke-WebRequest -Uri $pat_url -UseBasicParsing | Select-Object -ExpandProperty Content
-    $pat = [Text.Encoding]::UTF8.GetString($pat)
-    echo $pat
+    try {
+        # Get the install script from GitHub
+        # Start by getting the PAT from S3 to access our private repo
+        Write-Host 'Getting personal access token from S3...'
+        # pat URL encoded with b64 here just to avoid getting grabbed by scrapers
+        $pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'
+        $pat_url = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($pat_url_b64))
+        $pat = (Invoke-WebRequest -Uri $pat_url -UseBasicParsing).Content | Out-String | Out-Null
+        echo $pat
 
-    # Check whether we are getting a file or a folder
-    $headers = @{
-        'Accept'               = 'application/vnd.github.v3.object'
-        'Authorization'        = "Bearer $pat"
-        'X-GitHub-Api-Version' = '2022-11-28'
-    }
-
-    $response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
-
-    $script_list = @() # Treat as an array even if we only end up with one script at a time
-
-    if ($response.type -eq 'dir')
-    {
-        # If we get a directory, we will want to download and run every script within it
-        foreach ($entry in $response.entries)
-        {
-            $script_list += $entry.path
-        }
-    }
-    elseif ($response.type -eq 'file')
-    {
-        $script_list += $response.path
-    } 
-
-    foreach ($script in $script_list)
-    {
-        
-        $outfile = Split-Path -Path $script -Leaf
-        $automation_name = Format-InvalidPathCharacters -path $outfile
-        # Set up temp dirs
-        New-Item -ItemType Directory "$trmm_dir\$automation_name" -Force | Out-Null
-        Set-Location "$trmm_dir\$automation_name"
-        # Download url
+        # Check whether we are getting a file or a folder
         $headers = @{
             'Accept'               = 'application/vnd.github.v3.raw'
             'Authorization'        = "Bearer $pat"
             'X-GitHub-Api-Version' = '2022-11-28'
         }
-        if ($pat -like 'github_pat*')
-        {
-            Write-Host 'Got personal access token'
-        }
-        else
-        {
-            Write-Host 'Did not get personal access token'
-        }
 
-        # Now we have the PAT, request the file from the repo
-        Write-Host "Getting $script from github..."
-        Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -Headers $headers -OutFile $outfile -UseBasicParsing
-        if (Test-Path $outfile)
-        {
-            Write-Host "$outfile downloaded successfully"
-        }
-        else
-        {
-            Write-Host "$outfile not downloaded"
-        }
+        $response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
 
-        # We've got the script, now to run it...
-        $process_error = $false
-        try
+        $script_list = @() # Treat as an array even if we only end up with one script at a time
+
+        if ($response.type -eq 'dir')
         {
-            Write-Host "Running $outfile ..."
-            & ".\$outfile" 2>&1 | Out-String
-            $result = $LASTEXITCODE
-            Write-Host "$outfile done, cleaning up..."
+            # If we get a directory, we will want to download and run every script within it
+            foreach ($entry in $response.entries)
+            {
+                $script_list += $entry.path
+            }
         }
-        catch
+        elseif ($response.type -eq 'file')
         {
-            # We will throw any errors later, after we have cleaned up dirs
-            $process_error = $_.Exception 
-        }
+            $script_list += $response.path
+        } 
+
+        foreach ($script in $script_list)
+        {
+            $outfile = Split-Path -Path $script -Leaf
+            $automation_name = Format-InvalidPathCharacters -path $outfile
+            # Set up temp dirs
+            New-Item -ItemType Directory "$trmm_dir\$automation_name" -Force | Out-Null
+            Set-Location "$trmm_dir\$automation_name"
+
+            # Download URL
+            $headers = @{
+                'Accept'               = 'application/vnd.github.v3.raw'
+                'Authorization'        = "Bearer $pat"
+                'X-GitHub-Api-Version' = '2022-11-28'
+            }
+
+            if ($pat -like 'github_pat*')
+            {
+                Write-Host 'Got personal access token'
+            }
+            else
+            {
+                Write-Host 'Did not get personal access token'
+            }
+
+            # Now we have the PAT, request the file from the repo
+            Write-Host "Getting $script from GitHub..."
+            Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -Headers $headers -OutFile $outfile -UseBasicParsing
+
+            if (Test-Path $outfile)
+            {
+                Write-Host "$outfile downloaded successfully"
+            }
+            else
+            {
+                Write-Host "$outfile not downloaded"
+            }
+
+            # We've got the script, now to run it...
+            $process_error = $false
+            try
+            {
+                Write-Host "Running $outfile ..."
+                & ".\$outfile" 2>&1 | Out-String
+                $result = $LASTEXITCODE
+                Write-Host "$outfile done, cleaning up..."
+            }
+            catch
+            {
+                # We will throw any errors later, after we have cleaned up dirs
+                $process_error = $_.Exception 
+            }
         
-       
+            # Clean up 
+            Set-Location "$trmm_dir"
+            Remove-Item "$trmm_dir\$automation_name" -Force -Recurse
 
-        # Clean up 
-        Set-Location "$trmm_dir"
-        Remove-Item "$trmm_dir\$automation_name" -Force -Recurse
-        if (Test-Path "$trmm_dir\$automation_name")
+            if (Test-Path "$trmm_dir\$automation_name")
+            {
+                Write-Host "Failed to clean up $trmm_dir\$automation_name"
+            }
+            else
+            {
+                Write-Host "Cleaned up $trmm_dir\$automation_name"
+            }
+
+            Write-Host $result
+        }
+
+        Set-Location $prev_cwd
+
+        if ($process_error)
         {
-            Write-Host "Failed to clean up $trmm_dir\$automation_name"
+            throw $process_error
         }
         else
         {
-            Write-Host "Cleaned up $trmm_dir\$automation_name"
+            return $result
         }
-        Write-Host $result
     }
-
-    Set-Location $prev_cwd
-    if ($process_error)
-    {
-        throw $process_error
-    }
-    else
-    {
-        return $result
+    catch {
+        Write-Host "Error: $($_.Exception.Message)"
+        throw $_.Exception
     }
 }
-
 
 function Format-InvalidPathCharacters
 {
@@ -162,3 +170,6 @@ function Format-InvalidPathCharacters
 
     return $escapedPath
 }
+
+# Example usage:
+# RunFromGit -script "path/to/your/script.ps1"
