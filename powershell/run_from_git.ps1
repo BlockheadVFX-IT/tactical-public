@@ -1,23 +1,3 @@
-$token = "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"
-$headers = @{
-    'Authorization' = "Bearer $token"
-}
-# Replace 'BlockheadVFX-IT' with the correct GitHub user or organization name
-$username = 'BlockheadVFX-IT'
-
-$uri = "https://api.github.com/users/$username"
-$response = Invoke-WebRequest -Uri $uri -Headers $headers -Method Head
-
-# Print the response to see if it was successful
-Write-Host $response
-
-
-
-
-------------------------------
-
-
-
 function RunFromGit
 {
     param (
