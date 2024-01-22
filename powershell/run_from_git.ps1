@@ -1,14 +1,11 @@
-
-
-
 function RunFromGit
 {
     param (
         [Parameter(Mandatory = $true)][string]$script, # Path of file in github repo
         $outfile, # File to execute (probably same as above sans dirs)
         $automation_name, # Used for temp dir names
-        [string]$github_api_url = 'https://api.github.com/repos/blockheadvfx-it/boilerplates/contents', # If you are using a proxy change this
-        [string]$github_raw_url = 'https://raw.githubusercontent.com/blockheadvfx-it', # If you are using a proxy change this
+        [string]$github_api_url = 'https://api.github.com/repos/blockheadvfx/boilerplates/contents', 
+        [string]$github_raw_url = 'https://raw.githubusercontent.com/blockheadvfx', 
         [bool]$load_helpers = $true,
         [bool]$user_mode = $false, # If running as logged on user instead of system user, will change working dir to $env:LOCALAPPDATA
         [string]$pub_branch = 'main' # used to swap to different test branches if you want
