@@ -152,7 +152,7 @@ function RunFromGit
     }
     catch {
         Write-Host "Error: $($_.Exception.Message)"
-        throw $_.Exception
+    throw $_.Exception
     }
 }
 
