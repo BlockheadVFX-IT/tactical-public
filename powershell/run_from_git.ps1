@@ -55,7 +55,7 @@ function RunFromGit
         }
 
         $response = Invoke-WebRequest -Uri "$github_api_url/$([system.uri]::EscapeDataString($script))" -UseBasicParsing -Headers $headers | ConvertFrom-Json
-
+        echo $response
         $script_list = @() # Treat as an array even if we only end up with one script at a time
 
         if ($response.type -eq 'dir')
