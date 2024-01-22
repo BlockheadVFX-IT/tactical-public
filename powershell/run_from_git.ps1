@@ -33,7 +33,7 @@ function RunFromGit
     }
     else
     {
-        $trmm_dir = 'C:\ProgramData\TacticalRMM' # Otherwise use this dir
+        $trmm_dir = 'C:\ProgramData\NinjaRMMAgent' # Otherwise use this dir
     }
 
     # Get the install script from github
