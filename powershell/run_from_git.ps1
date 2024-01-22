@@ -31,7 +31,7 @@ function RunFromGit {
         param ($github_api_url, $script)
 
         $headers = @{
-            'Accept'               = 'application/vnd.github.v3.raw'
+            'Accept'               = 'application/vnd.github.v3.object'
             'Authorization'        = "Bearer $pat"
             'X-GitHub-Api-Version' = '2022-11-28'
         }
