@@ -39,8 +39,8 @@ function RunFromGit
     }
 
     # Get the install script from github
-    # Start by getting the PAT from S3 to access our private repo
-    Write-Host 'Getting personal access token from S3...'
+    # Start by getting the PAT from minio to access our private repo
+    Write-Host 'Getting personal access token from minio...'
     # pat URL encoded with b64 here just to avoid getting grabbed by scrapers
     #$pat_url_b64 = 'aHR0cHM6Ly90YW5nZWxvYnVja2V0bmluamEuczMuYXAtc291dGhlYXN0LTIuYW1hem9uYXdzLmNvbS90cm1tX2dpdGh1Yl9wYXQucGF0'    ##converted so that RL could be hidden 
     $pat_url_b64 = 'aHR0cHM6Ly9ha2wwOHZtaW5pbzAxLmJsb2NraGVhZHZmeC5jb20vdHJtbS1jcmVkZW50aWFscy9HaXRodWJfVG9rZW4vdHJtbV9naXRodWJfcGF0LnBhdA=='
